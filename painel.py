@@ -17,6 +17,9 @@ view_state = pdk.ViewState(
     pitch=0
 )
 
+# Constante para o tempo de vida máximo dos pontos, deve ser o mesmo do app.py
+TEMPO_MAXIMO_PONTO = 2.0
+
 # Loop infinito de polling
 while True:
     try:
@@ -28,18 +31,24 @@ while True:
             
             with map_placeholder.container():
                 if coordenadas:
+                    # Converte a lista para um DataFrame
                     df_pontos = pd.DataFrame(coordenadas)
+                    
+                    # Adiciona a coluna 'alpha' com a transparência calculada
+                    # A fórmula (1 - idade/tempo_max) garante que o ponto fica mais transparente com a idade
+                    df_pontos['alpha'] = df_pontos['idade'].apply(lambda idade: max(0, 255 * (1 - idade / TEMPO_MAXIMO_PONTO)))
                     
                     # Cria a camada de pontos
                     layer = pdk.Layer(
                         'ScatterplotLayer',
                         df_pontos,
                         get_position=['lon', 'lat'],
-                        get_color='[173, 216, 230, 1]', # Pontos vermelhos
-                        get_radius=20000
+                        # Usa a nova coluna 'alpha' na cor
+                        get_color='[255, 0, 0, alpha]', 
+                        get_radius=5000
                     )
 
-                    # Cria o mapa com a visão fixa e a camada, mas sem estilo de mapa
+                    # Cria o mapa com a visão fixa e a camada
                     r = pdk.Deck(
                         layers=[layer],
                         initial_view_state=view_state
@@ -48,7 +57,7 @@ while True:
                     st.pydeck_chart(r)
                     st.success(f"Número de pontos ativos: {len(coordenadas)}")
                 else:
-                    # Se não há coordenadas, exibe um mapa limpo e sem a camada
+                    # Se não há coordenadas, exibe um mapa limpo
                     r = pdk.Deck(
                         initial_view_state=view_state
                     )
@@ -63,4 +72,4 @@ while True:
         with map_placeholder.container():
             st.error(f"Não foi possível conectar ao servidor: {e}")
             
-    time.sleep(0.5)
+    time.sleep(0.05) # Diminuí o polling para 50ms para um efeito mais suave
